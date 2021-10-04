@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="c82296a5-98c2-4a7c-ae17-9b0597496d5f" basePath="/api/timezone">
+		<http:listener-connection host="0.0.0.0" port="8081" connectionIdleTimeout="60000"/>
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="26b613a7-e358-46f0-9323-3871771bf0f5" basePath="/api" >
+		<http:request-connection host="worldtimeapi.org"/>
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configuration1" doc:name="HTTP Request configuration" doc:id="66940677-0e38-41f7-8764-86771578b832" >
+		<http:request-connection host="gogle.com" />
+	</http:request-config>
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="341ed1a4-2784-41cb-86cb-21785824b053" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+	<flow name="errorhandlinglessonFlow" doc:id="7912d510-a8a5-402d-b893-cebf060bf1d7" >
+		<http:listener doc:name="Listener" doc:id="99f51c86-7c69-4300-96c9-8640f33c6765" config-ref="HTTP_Listener_config" path="/{region}/{city}">
+			<http:error-response statusCode="#[vars.httpStatus]">
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="fa118594-7142-4043-a12a-ead52916b269" message='#[[attributes.uriParams.region default " ", attributes.uriParams.city default " "]]'/>
+		<flow-ref doc:name="Flow Reference" doc:id="78aa8153-6c19-481e-bfd5-c65b6d72ce67" name="errorhandlinglessonFlow1"/>
+		<logger level="INFO" doc:name="Logger" doc:id="8478c0fa-e821-4e6c-a64c-04ec10c20844" message='#["End of Flow"]'/>
+		<error-handler>
+			<on-error-propagate  enableNotifications="true" logException="true" doc:name="On Error  propagate " doc:id="00085cc7-5fab-45c3-b72a-cb71786a2750">
+				<ee:transform doc:name="Transform Message" doc:id="e5bc85a9-e37b-4048-8845-bde7144dddb1" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"msg": "resource note found",
+	"possible soulution": " please check the name of the urlParamters",
+	
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="errorhandlinglessonFlow1" doc:id="d983ee64-60b4-4ab7-847b-b1c44aca8b4c" >
+		<set-variable value="#[attributes.uriParams.region]" doc:name="Set Variable" doc:id="be026e62-5da6-4b02-b708-81e5efbd1b5e" variableName="regionVar"/>
+		<set-variable value="#[attributes.uriParams.city]" doc:name="Set Variable" doc:id="69fb17ac-91d7-4042-8619-7d7c40cf0115" variableName="cityVar" />
+		<logger level="INFO" doc:name="Logger" doc:id="2e568b8c-0c6b-4179-aea0-4b8d525dd11c" message='#["region value:" ++ (vars.regionVar default "") ++ " city value:" ++ (vars.cityVar default "")]'/>
+		<http:request method="GET" doc:name="time zone Request" doc:id="c26e7d99-3400-4e5d-a8aa-36fafab211e9" config-ref="HTTP_Request_configuration" path="/{region}/{city}">
+			<http:uri-params><![CDATA[#[output application/json
+---
+{
+	"region" : vars.regionVar,
+	"city" : vars.cityVar
+}]]]></http:uri-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="5126f69c-d7d9-403b-b7ca-89ec6ed3d18b" message="#[payload]"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="271650e5-2496-4f9a-9194-3c726d6c252e" type="HTTP:BAD_GATEWAY">
+				<ee:transform doc:name="Transform Message" doc:id="3441a1c5-c417-4546-b2c8-1b1479cc2427" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"msg": "resource note found",
+	"possible soulution": " please check the name of the urlParamters",
+	"msg": "private flow"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="eba06a48-8197-43e0-9f8f-d722e8792a3a" type="HTTP:INTERNAL_SERVER_ERROR">
+				<ee:transform doc:name="Transform Message" doc:id="c02f49ba-979a-4a19-8cc4-b74adb265e09" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"msg": "internal server error"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="errorhandlinglessonFlow2" doc:id="523f3135-6640-48be-aed5-dd35c8a53cac" >
+		<http:listener doc:name="Listener" doc:id="e2baacc6-c80d-4ff5-8967-30e4512536f9" config-ref="HTTP_Listener_config1" path="/tryscopelesson"/>
+		<try doc:name="Try" doc:id="3d82f17b-63ca-47ce-bff2-d32e85ad33a5" >
+			<http:request method="GET" doc:name="Request" doc:id="d694f6e4-bf88-4669-9e3e-1a78a06fac0e" config-ref="HTTP_Request_configuration1" path="/book" />
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="6e3f72cc-4a13-4e56-98a3-cde06299d345" >
+					<set-payload value='#["habtamu"]' doc:name="Set Payload" doc:id="a8ea44be-a7b2-40a0-8af0-8e7f4df9498a" />
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<logger level="INFO" doc:name="Logger" doc:id="3576e2c9-9b7d-49c0-ad38-94a5514cd4b1" message='#["try scope compeleted"]'/>
+	</flow>
+</mule>
